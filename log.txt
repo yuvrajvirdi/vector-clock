@@ -8,3 +8,29 @@
 
 [2024-03-31 02:56:40] - server1 send an event to 127.0.0.1:8002 with clock [2, 0, 0]
 
+[2024-03-31 03:01:31] - server1 send an event to 127.0.0.1:8002 with clock [2, 0, 0]
+
+[2024-03-31 03:01:38] - server1 had a local event and updated clock to [3, 0, 0]
+
+[2024-03-31 03:01:44] - server2 send an event to 127.0.0.1:8001 with clock [0, 2, 0]
+
+[2024-03-31 03:03:41] - server2 had a local event and updated clock to [0, 2, 0]
+
+[2024-03-31 03:03:44] - server1 had a local event and updated clock to [2, 0, 0]
+
+[2024-03-31 03:03:56] - server1 send an event to 127.0.0.1:8002 with clock [3, 0, 0]
+
+[2024-03-31 03:19:52] - server1 had a local event and updated clock to [2, 0, 0]
+
+[2024-03-31 03:19:53] - server1 had a local event and updated clock to [3, 0, 0]
+
+[2024-03-31 03:20:00] - server1 send an event to 127.0.0.1:8002 with clock [2, 0, 0]
+
+[2024-03-31 03:22:31] - server1 send an event to 127.0.0.1:8002 with clock [2, 0, 0]
+
+[2024-03-31 03:22:37] - server2 send an event to 127.0.0.1:8002 with clock [0, 2, 0]
+
+[2024-03-31 03:22:40] - server2 send an event to 127.0.0.1:8001 with clock [0, 3, 0]
+
+[2024-03-31 03:24:52] - server1 send an event to 127.0.0.1:8002 with clock [2, 0, 0]
+

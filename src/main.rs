@@ -4,6 +4,8 @@ use std::env;
 use std::fs::OpenOptions;
 use std::io::{self, BufRead, Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::sync::{Arc, Mutex, Condvar};
+use std::thread;
 use chrono::Local;
 
 // vector clock represented by a vector
@@ -17,20 +19,20 @@ struct ServerMessage {
 }
 
 // tcp server structure
-#[derive(Debug)]
 struct Server {
     id: String,
     clock_index: usize,
     clock: VectorClock,
     listener: TcpListener,
+    shutdown_signal: Arc<(Mutex<bool>, Condvar)>,
 }
 
 // server implementation
 impl Server {
-
     // binds server to port
     fn new(id: &str, clock_index: usize, port: u16) -> Self {
         let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();
+        listener.set_nonblocking(true).expect("Failed to set non-blocking");
         let mut clock = [0; 3];
         clock[clock_index] = 1;
         Self {
@@ -38,6 +40,7 @@ impl Server {
             clock_index,
             clock,
             listener,
+            shutdown_signal: Arc::new((Mutex::new(false), Condvar::new())),
         }
     }
 
@@ -71,22 +74,26 @@ impl Server {
 
     // handles incoming events
     fn handle_events(&mut self) {
-        let mut incoming_streams = Vec::new();
-        for stream in self.listener.incoming() {
-            match stream {
-                Ok(s) => incoming_streams.push(s),
-                Err(_) => continue,
+        while !*self.shutdown_signal.0.lock().unwrap() {
+            match self.listener.accept() {
+                Ok((mut stream, _)) => {
+                    let mut buffer = [0; 1024];
+                    let _ = stream.read(&mut buffer).unwrap();
+                    let msg: ServerMessage = serde_json::from_slice(&buffer).expect("cannot deserialize message");
+                    self.update_clock(&msg.clock);
+                    let log_msg = format!("received event from {}, clock is now {:?}", msg.sender_id, self.clock);
+                    println!("{}", log_msg);
+                    Server::log_event(&log_msg);
+                },
+                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    // No incoming connection, break the loop to avoid busy waiting
+                    break;
+                },
+                Err(e) => {
+                    eprintln!("Error accepting connection: {}", e);
+                    continue;
+                }
             }
-        }
-    
-        for mut stream in incoming_streams {
-            let mut buffer = [0; 1024];
-            let _ = stream.read(&mut buffer).unwrap();
-            let msg: ServerMessage = serde_json::from_slice(&buffer).expect("cannot deserialize message");
-            self.update_clock(&msg.clock);
-            let log_msg = format!("received event from {}, clock is now {:?}", msg.sender_id, self.clock);
-            println!("{}", log_msg);
-            Server::log_event(&log_msg);
         }
     }
 
@@ -126,20 +133,30 @@ fn main() {
         }
     };
 
-    let mut server = Server::new(server_id, clock_index, port);
+    let server = Arc::new(Mutex::new(Server::new(server_id, clock_index, port)));
 
     println!("{} listening on port {}", server_id, port);
+
+    // Spawn a thread to handle incoming events
+    let server_clone = Arc::clone(&server);
+    thread::spawn(move || {
+        let mut server = server_clone.lock().unwrap();
+        println!("Starting to handle events...");
+        server.handle_events();
+        println!("Stopped handling events.");
+    });
 
     let stdin = io::stdin();
     for line in stdin.lock().lines() {
         let input = line.unwrap().trim().to_string();
+        let mut server = server.lock().unwrap();
         if input == "end" {
-            println!("shutting down {}", server_id);
+            println!("Shutting down {}", server_id);
             break;
         } else if input == "event" {
             server.increment();
             println!("{} clock is now {:?}", server_id, server.clock);
-            Server::log_event(&format!("{} had a local event and updated clock to {:?}", server.id, server.clock));
+            Server::log_event(&format!("{} had a local event and updated clock to {:?}", server_id, server.clock));
         } else if input == "clock" {
             println!("{} clock: {:?}", server_id, server.clock);
         } else {
@@ -157,4 +174,8 @@ fn main() {
             server.send_event(&to_address);
         }
     }
+
+    // Wait for the event handling thread to finish
+    thread::sleep(std::time::Duration::from_secs(1));
+    println!("Main thread exiting.");
 }
