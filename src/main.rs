@@ -86,7 +86,7 @@ impl Server {
                     Server::log_event(&log_msg);
                 },
                 Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    // No incoming connection, break the loop to avoid busy waiting
+                    // no incoming connection, break the loop to avoid busy waiting
                     break;
                 },
                 Err(e) => {
@@ -137,7 +137,7 @@ fn main() {
 
     println!("{} listening on port {}", server_id, port);
 
-    // Spawn a thread to handle incoming events
+    // spawn a thread to handle incoming events
     let server_clone = Arc::clone(&server);
     thread::spawn(move || {
         let mut server = server_clone.lock().unwrap();
@@ -175,7 +175,7 @@ fn main() {
         }
     }
 
-    // Wait for the event handling thread to finish
+    // wait for the event handling thread to finish
     thread::sleep(std::time::Duration::from_secs(1));
     println!("Main thread exiting.");
 }
